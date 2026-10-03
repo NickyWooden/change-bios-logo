@@ -130,6 +130,8 @@ python -m PyInstaller `
 * `--exclude-module` 的正确用法是排除**确定用不到**的模块。本项目实际只用到 Pillow 的
   `Image` / `ImageDraw` / `ImageFont` / `ImageTk` 与标准库的 `tkinter` / `lzma` / `numpy`。
   **每排除一个都要重新跑一遍完整功能验证**，否则很容易"打包成功、运行才崩"。
+* `glass.py` 是**同目录下的本地模块**（`import glass`），PyInstaller 会自己跟着导入分析收进去，
+  **不需要** `--hidden-import glass`，也**不需要** `--add-data`。
 * **不要用 UPX**：UPX 压缩过的 exe 经常被杀毒软件误报，而本项目 exe 已经接近 30 MB，压这点体积不值得。
 * 想要启动更快，可以把 `--onefile` 换成 `--onedir`，代价是分发时得给一个文件夹。
 
@@ -327,8 +329,8 @@ gh release create $tag $exe ".\dist\change-bios-logo.exe.sha256" `
 | 项目 | 值 |
 | --- | --- |
 | 文件名 | `change-bios-logo.exe` |
-| 字节数 | 约 `29,957,000` |
-| SHA-256 | `A603BE2261F08AA0DA289551CED06C376EEF48A2E7C882EE1FD7E183C1276D94` |
+| 字节数 | 约 `31,045,000` |
+| SHA-256 | `03B98581EBE8815B02162460961A08B49BA5C692F8647656D6D0B4992C95EC6E` |
 
 > ⚠️ **exe 不是可重现构建**。PyInstaller 会把构建时间戳写进 PE 头，因此
 > **换台机器、换个时间重新打包，字节数会差几百字节、SHA-256 必然不同**——这不代表失败。
