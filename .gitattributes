@@ -1,0 +1,18 @@
+# 默认：自动判断文本文件，仓库里统一用 LF 存储
+* text=auto eol=lf
+
+# Windows 批处理 / PowerShell 脚本保持 CRLF，避免某些环境下的解析问题
+*.ps1   text eol=crlf
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+
+# 二进制资源，不做任何换行转换
+*.ico   binary
+*.png   binary
+*.jpg   binary
+*.bmp   binary
+*.exe   binary
+
+# 让 GitHub 的语言统计不要把文档算成代码
+*.md    linguist-documentation
+docs/*  linguist-documentation

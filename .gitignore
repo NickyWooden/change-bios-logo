@@ -1,0 +1,31 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# ---- 打包产物 ----
+build/
+dist/
+*.spec
+*.exe
+*.pdb
+
+# ---- 运行时生成 ----
+backup/
+
+# ---- 测试时的输入/输出固件（体积大，不入库）----
+*.F44d
+*.f44d
+*.rom
+*.cap
+*.fd
+
+# ---- 编辑器 / 系统 ----
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+desktop.ini

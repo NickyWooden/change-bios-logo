@@ -1,0 +1,9 @@
+# 运行与打包所需依赖
+#
+# 运行（源码方式）：
+#   pip install -r requirements.txt
+#   python change_bios_logo.py
+#
+# 打包成单文件 exe：见 BUILD.md（build.ps1 会自动额外安装 PyInstaller）
+
+Pillow>=10.1
