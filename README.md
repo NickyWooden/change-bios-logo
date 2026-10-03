@@ -291,6 +291,36 @@ python bioslogo.py --in X.F44d --replace new.png --slot 1 --out out.F44d
 `GlassButton` 特意重写了 `configure` / `cget` 并拦截 `state` / `text` / `bg`，
 所以它能**直接顶替原来的 `ttk.Button`**，业务代码一行都不用改。
 
+### 想改字号 / 配色
+
+全部集中在 `glass.py` 顶部，改一处就够，不用满代码找字面量：
+
+| 常量 | 默认值 | 作用 |
+| --- | --- | --- |
+| `SIZE_BASE` | `11` | 正文、控件、标签（`apply_theme` 里作为全局默认字体） |
+| `SIZE_SMALL` | `10` | 提示 / 说明行 |
+| `SIZE_TITLE` | `19` | 窗口大标题 |
+| `SIZE_SUB` | `11` | 副标题 |
+| `SIZE_CARD` | `12` | 卡片标题 |
+| `SIZE_BTN` | `11` | 按钮 |
+| `SIZE_CHECK` | `11` | 勾选框 |
+| `SIZE_MONO` | `11` | 信息区 / 日志区（等宽） |
+| `CARD_TITLE_H` | `26` | 卡片标题占的高度，跟着 `SIZE_CARD` 一起调 |
+
+配色是同一区域的 `BG0` / `PANEL` / `PANEL_IN` / `INSET` / `BORDER` / `INK*` / `ACCENT*` 等常量。
+
+窗口尺寸是**自适应**的（见 `change_bios_logo.py` 里 `_build_ui()` 结尾那段）：按"所有控件都拿到请求尺寸"的高度定窗口，
+再夹到屏幕可用范围内，并且会用 Win32 实测一次客户区尺寸来校正 —— 因为个别 DPI 组合下
+`geometry()` 里的"像素"与真实客户区并不等价（PyInstaller 冻结版就踩过）。所以放大字号后一般**不需要**手改 `geometry`；
+只有在极端缩放下想强制预览区高度时才需要动 `PREVIEW_BOX`。
+
+排查布局问题（预览区被挤扁、控件被裁、窗口比内容小）时，可以带上环境变量看一行诊断输出：
+
+```powershell
+$env:CBL_DEBUG_UI = "1"; .\change-bios-logo.exe
+# DEBUG screen=3840x2160 scaling=2.0009 req=1192x1277 -> geometry 1320x1285, 实测客户区 (1320, 1285)
+```
+
 ---
 
 ## 原理简述

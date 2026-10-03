@@ -50,6 +50,18 @@ ERR = "#ff6b81"
 FONT_UI = "Microsoft YaHei UI"
 FONT_MONO = "Consolas"
 
+# 字号（tkinter 的 size 是磅值，随系统 DPI 缩放）。
+# 集中在这里，改一处就能整体放大/缩小界面，不用满代码找字面量。
+SIZE_BASE = 11        # 正文、控件、标签
+SIZE_SMALL = 10       # 提示 / 说明行
+SIZE_TITLE = 19       # 窗口大标题
+SIZE_SUB = 11         # 副标题
+SIZE_CARD = 12        # 卡片标题
+SIZE_BTN = 11         # 按钮
+SIZE_CHECK = 11       # 勾选框
+SIZE_MONO = 11        # 信息区 / 日志区（等宽）
+CARD_TITLE_H = 26     # 卡片标题占的高度（跟着 SIZE_CARD 一起调）
+
 # 卡片填充的竖向渐变 alpha（上淡下实）
 CARD_ALPHA_TOP = 172
 CARD_ALPHA_BOT = 146
@@ -189,7 +201,7 @@ class GlassCard(tk.Frame):
         self._cv = tk.Canvas(self, bg=PANEL_SOLID, bd=0, highlightthickness=0)
         self._cv.place(x=0, y=0, relwidth=1, relheight=1)
 
-        top = self.SHADOW + pad[1] + (22 if self._title else 0)
+        top = self.SHADOW + pad[1] + (CARD_TITLE_H if self._title else 0)
         self.body = tk.Frame(self, bg=PANEL_SOLID, bd=0, highlightthickness=0)
         self.body.pack(fill="both", expand=True,
                        padx=self.SHADOW + pad[0], pady=(top, self.SHADOW + pad[3]))
@@ -258,11 +270,11 @@ class GlassCard(tk.Frame):
         if self._title:
             td = ImageDraw.Draw(base)
             # 左侧小色条
-            gx, gy = x + 14, y + 13
-            td.rounded_rectangle([gx, gy + 1, gx + 3, gy + 13], radius=1,
+            gx, gy = x + 15, y + 14
+            td.rounded_rectangle([gx, gy + 1, gx + 4, gy + 16], radius=2,
                                  fill=hex2rgb(self._glow or ACCENT) + (255,))
             base.alpha_composite(
-                _text_img(self._title, FONT_UI, 10, INK2), (gx + 11, gy))
+                _text_img(self._title, FONT_UI, SIZE_CARD, INK2), (gx + 12, gy))
 
         # 子控件一律用 PANEL_IN 实色。卡片填充的 alpha 就是按"叠在背景上
         # 恰好等于 PANEL_IN"选的，所以这里不跟着采样走 —— 否则 ttk 控件的
@@ -313,8 +325,8 @@ class GlassButton(tk.Canvas):
     """自绘圆角按钮，兼容 ``configure(state=...)`` / ``configure(text=...)``。"""
 
     def __init__(self, parent, text: str = "", command=None, kind: str = "normal",
-                 width: int | None = None, height: int = 34, radius: int = 9,
-                 font_size: int = 9, bg: str = PANEL_SOLID):
+                 width: int | None = None, height: int = 38, radius: int = 9,
+                 font_size: int = SIZE_BTN, bg: str = PANEL_SOLID):
         self._label = text
         self._command = command
         self._kind = kind                     # normal | primary | ghost
@@ -464,12 +476,12 @@ class GlassCheck(tk.Canvas):
     所以业务代码不需要知道这是自绘控件。
     """
 
-    BOX = 15          # 方框边长
-    GAP = 7           # 方框与文字间距
+    BOX = 17          # 方框边长
+    GAP = 8           # 方框与文字间距
     PAD = 1
 
     def __init__(self, parent, text: str = "", variable=None, command=None,
-                 bg: str = PANEL_SOLID, height: int = 22, font_size: int = 9):
+                 bg: str = PANEL_SOLID, height: int = 26, font_size: int = SIZE_CHECK):
         self._text = text
         self._boolvar = variable if variable is not None else tk.BooleanVar(value=False)
         self._command = command
@@ -589,7 +601,7 @@ def apply_theme(root: tk.Tk, panel_bg: str = PANEL_SOLID, inset_bg: str = INSET)
         pass
 
     root.configure(bg=BG0)
-    root.option_add("*Font", (FONT_UI, 9))
+    root.option_add("*Font", (FONT_UI, SIZE_BASE))
 
     style.configure(".", background=panel_bg, foreground=INK,
                     fieldbackground=inset_bg, bordercolor=BORDER,
@@ -601,15 +613,15 @@ def apply_theme(root: tk.Tk, panel_bg: str = PANEL_SOLID, inset_bg: str = INSET)
 
     style.configure("Glass.TLabel", background=panel_bg, foreground=INK)
     style.configure("Title.TLabel", background=BG0, foreground=INK,
-                    font=(FONT_UI, 16, "bold"))
+                    font=(FONT_UI, SIZE_TITLE, "bold"))
     style.configure("Sub.TLabel", background=BG0, foreground=INK2,
-                    font=(FONT_UI, 9))
+                    font=(FONT_UI, SIZE_SUB))
     style.configure("Hint.TLabel", background=panel_bg, foreground=INK3,
-                    font=(FONT_UI, 8))
+                    font=(FONT_UI, SIZE_SMALL))
     style.configure("HintBG.TLabel", background=BG0, foreground=INK3,
-                    font=(FONT_UI, 8))
+                    font=(FONT_UI, SIZE_SMALL))
     style.configure("Value.TLabel", background=panel_bg, foreground=INK2,
-                    font=(FONT_UI, 9))
+                    font=(FONT_UI, SIZE_BASE))
 
     # 下拉框
     style.configure("TCombobox", fieldbackground=inset_bg, background=panel_bg,
@@ -671,7 +683,7 @@ def apply_theme(root: tk.Tk, panel_bg: str = PANEL_SOLID, inset_bg: str = INSET)
     return style
 
 
-def style_text(widget: tk.Text, kind: str = "inset", font_size: int = 9):
+def style_text(widget: tk.Text, kind: str = "inset", font_size: int = SIZE_MONO):
     """统一内嵌 Text 控件的外观。"""
     bg = INSET if kind != "log" else "#080e18"
     fg = INK if kind != "log" else "#c7d6ea"

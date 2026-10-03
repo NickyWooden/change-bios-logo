@@ -34,7 +34,7 @@ import glass as G
 
 APP_NAME = "change-bios-logo"
 APP_TITLE = "change-bios-logo — BIOS 开机 Logo 修改工具"
-PREVIEW_BOX = (210, 230)                   # 预览缩略图最大尺寸
+PREVIEW_BOX = (250, 175)                   # 预览缩略图最大尺寸
 
 # 上传图片不再限制体积：真正决定成败的是渲染出来的 293x400 画布能否压进 Logo 段，
 # 与输入图片自身多大无关（大图会被等比缩放）。这里只留一个明显异常的保护值，
@@ -96,6 +96,20 @@ def tool_dir() -> Path:
     if getattr(sys, "frozen", False):
         return Path(sys.executable).resolve().parent
     return Path(__file__).resolve().parent
+
+
+def _client_size(win) -> tuple[int, int]:
+    """窗口客户区的真实像素尺寸（走 Win32，绕开 Tk 自己的换算）。"""
+    try:
+        import ctypes
+        from ctypes import wintypes
+        hwnd = (ctypes.windll.user32.GetParent(win.winfo_id())
+                or win.winfo_id())
+        r = wintypes.RECT()
+        ctypes.windll.user32.GetClientRect(hwnd, ctypes.byref(r))
+        return int(r.right), int(r.bottom)
+    except Exception:
+        return int(win.winfo_width()), int(win.winfo_height())
 
 
 def human(n: int) -> str:
@@ -161,7 +175,7 @@ class CropDialog(tk.Toplevel):
                               ("按目标比例", self._sel_aspect, (6, 0)),
                               ("去黑边", self._sel_content, (6, 0)),
                               ("还原", self._sel_all, (6, 0))):
-            G.GlassButton(bar, text=txt, kind="ghost", height=30,
+            G.GlassButton(bar, text=txt, kind="ghost", height=34,
                           command=cmd).pack(side="left", padx=pad)
 
         self.size_lab = ttk.Label(wrap, text="", style="Hint.TLabel")
@@ -169,9 +183,9 @@ class CropDialog(tk.Toplevel):
 
         foot = tk.Frame(wrap, bg=G.BG0)
         foot.pack(fill="x", pady=(10, 0))
-        G.GlassButton(foot, text="取消", kind="ghost", height=32,
+        G.GlassButton(foot, text="取消", kind="ghost", height=36,
                       command=self._cancel).pack(side="right")
-        G.GlassButton(foot, text="确定", kind="primary", height=32,
+        G.GlassButton(foot, text="确定", kind="primary", height=36,
                       command=self._ok).pack(side="right", padx=8)
 
         self._draw()
@@ -358,8 +372,8 @@ class App:
     # ---------------------------------------------------------------- UI
     def _build_ui(self):
         self.root.title(APP_TITLE)
-        self.root.geometry("1180x1000")
-        self.root.minsize(1080, 920)
+        self.root.geometry("1320x1040")     # 占位，末尾按真实需求重设
+        self.root.minsize(1200, 960)
 
         try:
             ico = self.tool_dir / "app.ico"
@@ -373,38 +387,39 @@ class App:
 
         # ---- 磨砂背景；标题直接画在背景图上（没有底色，天然"透明"）----
         self.backdrop = G.BackdropCanvas(
-            self.root, minsize=(1080, 920),
+            self.root, minsize=(1200, 960),
             header=[
-                ("BIOS 开机 Logo 修改工具", 26, 12, 15, G.INK),
+                ("BIOS 开机 Logo 修改工具", 28, 14, G.SIZE_TITLE, G.INK),
                 (f"{APP_NAME} · 只替换固件里的开机 Logo 图片，段头 / FFS / FV "
-                 f"结构与其余字节全部保持原样，文件等长。", 26, 43, 9, G.INK3),
+                 f"结构与其余字节全部保持原样，文件等长。", 28, 50,
+                 G.SIZE_SUB, G.INK3),
             ])
 
         # ================================================== ① 操作卡片
         tools = G.GlassCard(self.root, title="操作", glow=G.ACCENT)
-        tools.pack(side="top", fill="x", padx=20, pady=(72, 14))
+        tools.pack(side="top", fill="x", padx=20, pady=(86, 16))
         tw = tools.body
 
         bar = tk.Frame(tw, bg=G.PANEL_IN)
         bar.pack(fill="x")
         self.btn_load = G.GlassButton(bar, text="① 载入 BIOS 文件", kind="primary",
-                                      command=self.on_load, height=36)
+                                      command=self.on_load, height=42)
         self.btn_upload = G.GlassButton(bar, text="② 上传新 Logo", kind="primary",
-                                        command=self.on_upload, height=36)
+                                        command=self.on_upload, height=42)
         self.btn_replace = G.GlassButton(bar, text="③ Logo 替换", kind="primary",
-                                         command=self.on_replace, height=36)
+                                         command=self.on_replace, height=42)
         for b in (self.btn_load, self.btn_upload, self.btn_replace):
-            b.pack(side="left", padx=(0, 8))
+            b.pack(side="left", padx=(0, 9))
         self.btn_open_dir = G.GlassButton(bar, text="打开工具目录", kind="ghost",
-                                          command=self.on_open_dir, height=36)
+                                          command=self.on_open_dir, height=42)
         self.btn_open_dir.pack(side="right")
 
         # ---- 槽位选择 ----
         bar_slot = tk.Frame(tw, bg=G.PANEL_IN)
-        bar_slot.pack(fill="x", pady=(10, 0))
+        bar_slot.pack(fill="x", pady=(12, 0))
         ttk.Label(bar_slot, text="Logo 槽位：").pack(side="left")
         self.slot_var = tk.StringVar(value="—")
-        self.slot_box = ttk.Combobox(bar_slot, textvariable=self.slot_var, width=24,
+        self.slot_box = ttk.Combobox(bar_slot, textvariable=self.slot_var, width=20,
                                      state="readonly", values=["—"])
         self.slot_box.pack(side="left")
         self.slot_box.bind("<<ComboboxSelected>>", self.on_slot_change)
@@ -414,11 +429,11 @@ class App:
 
         # ---- 图片适配控制 ----
         bar_fit = tk.Frame(tw, bg=G.PANEL_IN)
-        bar_fit.pack(fill="x", pady=(7, 0))
+        bar_fit.pack(fill="x", pady=(9, 0))
         self.auto_trim = tk.BooleanVar(value=False)
         G.GlassCheck(bar_fit, text="自动去黑边", variable=self.auto_trim,
                      command=self._update_result_preview).pack(side="left")
-        ttk.Label(bar_fit, text="适配方式：").pack(side="left", padx=(14, 4))
+        ttk.Label(bar_fit, text="适配方式：").pack(side="left", padx=(16, 4))
         self.fit_label = tk.StringVar(value=B.FIT_LABELS[B.FIT_CONTAIN])
         self.fit_box = ttk.Combobox(
             bar_fit, textvariable=self.fit_label, state="readonly", width=10,
@@ -427,27 +442,27 @@ class App:
         self.fit_box.bind("<<ComboboxSelected>>",
                           lambda _e: self._on_fit_change())
 
-        ttk.Label(bar_fit, text="缩放：").pack(side="left", padx=(14, 4))
+        ttk.Label(bar_fit, text="缩放：").pack(side="left", padx=(16, 4))
         self.zoom_var = tk.DoubleVar(value=1.0)
         ttk.Scale(bar_fit, from_=ZOOM_MIN, to=ZOOM_MAX, variable=self.zoom_var,
-                  command=self._on_zoom, length=120).pack(side="left")
+                  command=self._on_zoom, length=130).pack(side="left")
         self.zoom_lab = ttk.Label(bar_fit, text="1.00×", width=7)
-        self.zoom_lab.pack(side="left", padx=(4, 0))
+        self.zoom_lab.pack(side="left", padx=(6, 0))
 
         self.btn_crop = G.GlassButton(bar_fit, text="裁剪图片…", kind="ghost",
-                                      command=self.on_crop, height=30)
-        self.btn_crop.pack(side="left", padx=(14, 6))
+                                      command=self.on_crop, height=34)
+        self.btn_crop.pack(side="left", padx=(16, 7))
         self.btn_fitreset = G.GlassButton(bar_fit, text="重置", kind="ghost",
-                                          command=self.on_reset_fit, height=30)
+                                          command=self.on_reset_fit, height=34)
         self.btn_fitreset.pack(side="left")
 
         # ---- 输出尺寸（可任意，不要求与原 Logo 一致）----
         bar_size = tk.Frame(tw, bg=G.PANEL_IN)
-        bar_size.pack(fill="x", pady=(7, 0))
+        bar_size.pack(fill="x", pady=(9, 0))
         ttk.Label(bar_size, text="输出尺寸：").pack(side="left")
         self.size_label = tk.StringVar(value=SIZE_LABELS[SIZE_ORIG])
         self.size_box = ttk.Combobox(
-            bar_size, textvariable=self.size_label, state="readonly", width=18,
+            bar_size, textvariable=self.size_label, state="readonly", width=17,
             values=[SIZE_LABELS[m] for m in SIZE_MODES])
         self.size_box.pack(side="left")
         self.size_box.bind("<<ComboboxSelected>>",
@@ -455,11 +470,11 @@ class App:
 
         self.size_w = tk.StringVar(value="")
         self.size_h = tk.StringVar(value="")
-        self.sp_w = ttk.Spinbox(bar_size, from_=8, to=8192, width=5,
+        self.sp_w = ttk.Spinbox(bar_size, from_=8, to=8192, width=6,
                                 textvariable=self.size_w, command=self._on_size_change)
         self.sp_w.pack(side="left", padx=(8, 0))
         ttk.Label(bar_size, text="×").pack(side="left", padx=2)
-        self.sp_h = ttk.Spinbox(bar_size, from_=8, to=8192, width=5,
+        self.sp_h = ttk.Spinbox(bar_size, from_=8, to=8192, width=6,
                                 textvariable=self.size_h, command=self._on_size_change)
         self.sp_h.pack(side="left")
         self.sp_w.bind("<Return>", lambda _e: self._on_size_change())
@@ -473,11 +488,11 @@ class App:
 
         # ---- 颜色位数 / 自动缩小（决定「一张图能放多大」）----
         bar_bpp = tk.Frame(tw, bg=G.PANEL_IN)
-        bar_bpp.pack(fill="x", pady=(7, 0))
+        bar_bpp.pack(fill="x", pady=(9, 0))
         ttk.Label(bar_bpp, text="颜色位数：").pack(side="left")
         self.bpp_label = tk.StringVar(value=BPP_LABELS[BPP_24])
         self.bpp_box = ttk.Combobox(
-            bar_bpp, textvariable=self.bpp_label, state="readonly", width=24,
+            bar_bpp, textvariable=self.bpp_label, state="readonly", width=26,
             values=[BPP_LABELS[m] for m in BPP_MODES])
         self.bpp_box.pack(side="left")
         self.bpp_box.bind("<<ComboboxSelected>>",
@@ -486,14 +501,14 @@ class App:
         self.auto_fit = tk.BooleanVar(value=True)
         G.GlassCheck(bar_bpp, text="放不下时自动缩小",
                      variable=self.auto_fit,
-                     command=self._on_bpp_change).pack(side="left", padx=(14, 0))
+                     command=self._on_bpp_change).pack(side="left", padx=(16, 0))
         self.bpp_now = ttk.Label(bar_bpp, text="", style="Hint.TLabel")
-        self.bpp_now.pack(side="left", padx=(12, 0))
+        self.bpp_now.pack(side="left", padx=(14, 0))
         self._update_bpp_now()
 
         # ---- 适配方式说明 ----
         bar_tip = tk.Frame(tw, bg=G.PANEL_IN)
-        bar_tip.pack(fill="x", pady=(7, 0))
+        bar_tip.pack(fill="x", pady=(9, 0))
         self.fit_tip = ttk.Label(bar_tip, text="", style="Hint.TLabel")
         self.fit_tip.pack(side="left")
         self._update_fit_tip()
@@ -518,7 +533,7 @@ class App:
 
         log_row = tk.Frame(log_card.body, bg=G.PANEL_IN)
         log_row.pack(fill="both", expand=True)
-        self.log_text = tk.Text(log_row, height=5, wrap="word", relief="flat")
+        self.log_text = tk.Text(log_row, height=4, wrap="word", relief="flat")
         G.style_text(self.log_text, "log")
         log_sb = ttk.Scrollbar(log_row, orient="vertical", command=self.log_text.yview)
         self.log_text.configure(yscrollcommand=log_sb.set)
@@ -538,6 +553,32 @@ class App:
         self.pv_new = self._make_preview(1, "替换结果（实际写入固件的画面）",
                                          "点击图片 → 备份到工具目录")
 
+        # ---- 按当前 DPI 的实际需求定尺寸 ----
+        # 字号是磅值、会随系统缩放走，而 geometry 是物理像素，所以不能在
+        # 代码里写死窗口大小：写小了预览区会被挤成一条缝（真实踩过），
+        # 写大了在小屏上又超出屏幕。这里按"所有控件都拿到请求尺寸"的高度来定，
+        # 再夹到屏幕可用范围内。
+        self.root.update_idletasks()
+        sw, sh = self.root.winfo_screenwidth(), self.root.winfo_screenheight()
+        w = max(1320, self.root.winfo_reqwidth() + 24)
+        h = max(960, self.root.winfo_reqheight() + 8)
+        w = min(w, sw - 80)
+        h = min(h, sh - 100)
+        self.root.geometry(f"{w}x{h}")
+        self.root.update_idletasks()
+        # 有些 DPI 组合下（实测 PyInstaller 冻结版会）geometry 里的"像素"与真实
+        # 客户区不等价，窗口会比内容小一圈。这里实测一次比例并校正回来。
+        cw, ch = _client_size(self.root)
+        if cw > 60 and ch > 60 and (abs(cw - w) > 8 or abs(ch - h) > 8):
+            w = min(int(round(w * w / cw)), sw - 80)
+            h = min(int(round(h * h / ch)), sh - 100)
+            self.root.geometry(f"{w}x{h}")
+        self.root.minsize(min(1200, w), min(900, h))
+        if os.environ.get("CBL_DEBUG_UI"):
+            print(f"DEBUG screen={sw}x{sh} scaling={self.root.tk.call('tk', 'scaling')} "
+                  f"req={self.root.winfo_reqwidth()}x{self.root.winfo_reqheight()} "
+                  f"-> geometry {w}x{h}, 实测客户区 {_client_size(self.root)}", flush=True)
+
         self.root.protocol("WM_DELETE_WINDOW", self.root.destroy)
 
     def _make_preview(self, col, title, hint):
@@ -552,7 +593,7 @@ class App:
                           width=PREVIEW_BOX[0], height=PREVIEW_BOX[1])
         holder._placeholder = ph            # 防止被 GC
         holder.pack(fill="both", expand=True)
-        ttk.Label(card.body, text=hint, style="Hint.TLabel").pack(pady=(8, 0))
+        ttk.Label(card.body, text=hint, style="Hint.TLabel").pack(pady=(10, 0))
         holder.bind("<Button-1>", lambda _e, c=col: self.on_preview_click(c))
         holder.bind("<Configure>",
                     lambda e, c=col: self._on_preview_resize(c, e.width, e.height))
@@ -564,7 +605,7 @@ class App:
     def _placeholder(self, box, text="（无）"):
         """空态占位图：深色底 + 居中灰字。"""
         img = Image.new("RGB", box, G.hex2rgb(G.INSET))
-        t = G._text_img(text, G.FONT_UI, 10, G.INK3)
+        t = G._text_img(text, G.FONT_UI, G.SIZE_CARD, G.INK3)
         img.paste(t, ((box[0] - t.width) // 2, (box[1] - t.height) // 2), t)
         return img
 

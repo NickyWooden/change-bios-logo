@@ -329,8 +329,8 @@ gh release create $tag $exe ".\dist\change-bios-logo.exe.sha256" `
 | 项目 | 值 |
 | --- | --- |
 | 文件名 | `change-bios-logo.exe` |
-| 字节数 | 约 `31,045,000` |
-| SHA-256 | `03B98581EBE8815B02162460961A08B49BA5C692F8647656D6D0B4992C95EC6E` |
+| 字节数 | 约 `31,053,000` |
+| SHA-256 | `D0D944B8EB9B017F4A8132E8345741405FC444E62839436C895BA0AB04402D22` |
 
 > ⚠️ **exe 不是可重现构建**。PyInstaller 会把构建时间戳写进 PE 头，因此
 > **换台机器、换个时间重新打包，字节数会差几百字节、SHA-256 必然不同**——这不代表失败。
