@@ -65,14 +65,23 @@
 常用参数：
 
 ```powershell
-.\build.ps1 -Clean                 # 先删掉 .venv / build / dist 再重打
+.\build.ps1 -Clean                 # 先删掉 .venv / build / 输出目录 再重打
 .\build.ps1 -Cli                   # 额外再打一个命令行版 bioslogo.exe
 .\build.ps1 -NoVenv                # 不用虚拟环境，直接用当前 Python
-.\build.ps1 -OutputDir release     # 产物放到 release\
+.\build.ps1 -OutputDir dist        # 指定输出目录（相对路径按脚本所在目录解析）
 .\build.ps1 -Python "C:\Python312\python.exe"   # 显式指定解释器
 ```
 
-产物：`dist\change-bios-logo.exe`
+产物：**默认输出到工作区之外**的 `<文档>\change-bios-logo-release\change-bios-logo.exe`
+（本机即 `C:\Users\rose\Documents\change-bios-logo-release\change-bios-logo.exe`）。
+
+> 为什么默认不放在仓库里的 `dist\`：onefile 产物每次启动都要在 `%TEMP%` 下解包，
+> 而 DSH 沙箱会限制"在工作区目录内启动的进程"只能写工作区，于是双击工作区里的 exe
+> 只会弹出 `Could not create temporary directory!`（详见第 7 节 ⑧）。
+> 想把产物放回仓库，显式写 `-OutputDir dist` 即可。
+
+脚本还会先检查 `.venv` 里 `Pillow` / `PySide6` / `PyInstaller` 是否齐全，
+**缺什么才装什么**（都齐了就直接跳过 `pip`，避免离线或网络慢时卡在安装步骤）。
 
 ---
 
@@ -293,16 +302,76 @@ if ($err.Count) { $err | ForEach-Object Message } else { "语法 OK" }
 
 ---
 
+### ⑧ 在工作区内双击 exe 会报 `Could not create temporary directory!`
+
+**现象**：双击 `dist\change-bios-logo.exe` 后不出现界面，只弹一个标题为 `Error` 的对话框：
+
+```text
+Could not create temporary directory!
+```
+
+而右键「以管理员身份运行」却能正常打开——看起来像"这个程序必须要管理员权限"。
+
+**真正原因**：程序本身不需要管理员权限，是**这台开发机上 DSH 的沙箱按"可执行文件所在位置"限制写权限**：
+
+1. PyInstaller 的 `--onefile` 产物启动时，bootloader 会先在 `%TEMP%` 下创建 `_MEIxxxxx` 目录并把运行时解包进去；
+2. 只要 **exe 文件位于 DSH 工作区目录内**，该进程就只能在**工作区内**写文件：往 `%TEMP%` 创建目录一律返回"拒绝访问"。用同一个探针在两处解释器里实测：
+
+   | 解释器（exe 所在位置） | `CreateDirectoryW(%TEMP%\_MEI<pid>)` | 工作区内 |
+   | --- | --- | --- |
+   | 工作区内 `.venv\Scripts\python.exe` | `False` err=**5**（拒绝访问） | `True` |
+   | 工作区外系统 Python | `True` err=0 | `True` |
+
+3. 于是 bootloader 报 `Could not create temporary directory!`；以管理员身份运行时进程不受沙箱限制，所以能打开。
+4. 与程序本身无关：**同一份 exe 复制到工作区外，普通双击即可打开，全程不提权**。实测用计划任务（干净、未提升的令牌）启动 `C:\Users\rose\Documents\change-bios-logo-release\change-bios-logo.exe`：界面正常出现，`%TEMP%` 下正常生成 `_MEI` 目录，运行日志第一行「工具目录」指向该文件夹。
+
+**做法**：
+
+* **不要在工作区目录内直接运行打包产物**：复制到工作区外（例如 `C:\Users\rose\Documents\change-bios-logo-release\`）再双击；
+* 打包默认就输出到工作区外：`.\build.ps1` 会把产物放到 `<文档>\change-bios-logo-release\`（见第 2 节）；
+  想把产物放回仓库里的 `dist\` 才需要显式指定 `-OutputDir dist`；
+* 这条沙箱限制还有另一面：**PyInstaller 自己（用工作区内的 `.venv` python 运行）也写不了工作区外**，
+  直接 `--distpath` 到工作区外会报 `PermissionError: [WinError 5] 拒绝访问`。所以 `build.ps1`
+  的流程是"先让 PyInstaller 输出到工作区内的 `build\dist\`，再由 PowerShell 复制到最终目录"
+  （PowerShell 的映像在工作区外，不受这条限制）；
+
+* **不要用 UAC 清单**（`requireAdministrator`）去"解决"它：那会让**所有使用者**每次启动都弹 UAC 提权，而根因只存在于本机的工作区沙箱里，与分发给别人的 exe 无关；
+* 首次双击若出现「打开文件 - 安全警告 / 无法验证发布者。你确定要运行此软件吗?」（未签名程序的常规确认框），点「运行(R)」即可，这不是权限问题；
+* 想临时验证"是不是沙箱造成的"，把同一个 exe 分别放在工作区内、外各启动一次，看 `%TEMP%` 下有没有生成 `_MEI*` 目录即可：
+
+  ```powershell
+  Get-Process change-bios-logo | Select-Object Id, MainWindowTitle   # 界面版窗口标题是“change bios logo”
+  Get-ChildItem $env:TEMP -Directory -Filter "_MEI*" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+  ```
+
+### ⑨ 打包版出问题先看 exe 同目录的 `change-bios-logo-error.log`
+
+`--windowed` 的产物没有控制台，`sys.stdout` / `sys.stderr` 默认是 `None`：这种情况下任何槽函数抛出未捕获异常，连"打印 traceback"这一步都会失败，并把进程直接 abort——用户看到的就是"点一下直接闪退"，事件日志里是 `ucrtbase.dll` 的异常代码 `0xc0000409`。
+
+`main()` 里现在做了两件事：
+
+* `_ensure_std_streams()`：把 `stdout` / `stderr` 接到 **exe 同目录**的 `change-bios-logo-error.log`，异常至少留下可查痕迹；
+* `_GuardedApplication.notify()`：捕获事件 / 槽里的未捕获异常，写日志并提示一次，**不再让整个进程退出**。
+
+排查步骤：
+
+1. 看 exe 同目录有没有 `change-bios-logo-error.log`，最后一段 traceback 就是出错点；
+2. 需要更细的信息就用源码跑同一操作（有控制台，traceback 直接可见）：`.\.venv\Scripts\python.exe change_bios_logo.py`；
+3. 修完重新打包：`.\build.ps1`（产物默认落在工作区外的 `<文档>\change-bios-logo-release\`）。
+
+---
+
 ## 8. 发布到 GitHub Releases
 
 ```powershell
 $tag = "v1.0.0"
 .\build.ps1 -Clean
-$exe = ".\dist\change-bios-logo.exe"
+# 默认产物在 <文档>\change-bios-logo-release\（见第 2 节）
+$exe = "$([Environment]::GetFolderPath('MyDocuments'))\change-bios-logo-release\change-bios-logo.exe"
 "$((Get-FileHash $exe -Algorithm SHA256).Hash)  change-bios-logo.exe" |
-    Out-File .\dist\change-bios-logo.exe.sha256 -Encoding ascii
+    Out-File "$exe.sha256" -Encoding ascii
 
-gh release create $tag $exe ".\dist\change-bios-logo.exe.sha256" `
+gh release create $tag $exe "$exe.sha256" `
     --title "change-bios-logo $tag" --notes "见 CHANGELOG"
 ```
 
@@ -319,8 +388,9 @@ gh release create $tag $exe ".\dist\change-bios-logo.exe.sha256" `
 | 组件 | 版本 |
 | --- | --- |
 | Windows | 11 |
-| Python | 3.12.14 |
+| Python | 3.12.10 |
 | Pillow | 12.3.0 |
+| PySide6 | 6.11.2 |
 | PyInstaller | 6.22.3 |
 | PowerShell | 7（Windows PowerShell 5.1 亦可用） |
 
@@ -329,14 +399,15 @@ gh release create $tag $exe ".\dist\change-bios-logo.exe.sha256" `
 | 项目 | 值 |
 | --- | --- |
 | 文件名 | `change-bios-logo.exe` |
-| 字节数 | 约 `31,053,000` |
-| SHA-256 | `D0D944B8EB9B017F4A8132E8345741405FC444E62839436C895BA0AB04402D22` |
+| 字节数 | 约 `67,974,000` |
+| SHA-256 | `0F7F6BBF85566654D45BA2E582A5C04F666F68D1682F464F110CB3858F4D0011` |
 
 > ⚠️ **exe 不是可重现构建**。PyInstaller 会把构建时间戳写进 PE 头，因此
 > **换台机器、换个时间重新打包，字节数会差几百字节、SHA-256 必然不同**——这不代表失败。
 > 上面这个指纹只用于说明"哪一次构建"，**不能当作校验标准**。
 >
-> 真正确定的是**容器大小量级**：装了 Pillow + numpy + tkinter 之后，单文件 exe 稳定在 **30 MB 上下**。
-> 如果你打出来的只有几 MB，那多半是某个依赖没被收进去。
+> 真正确定的是**容器大小量级**：界面已从 tkinter 换成 PySide6，所以装了 Pillow + numpy + PySide6
+> 之后，单文件 exe 稳定在 **65 MB 上下**（PySide6/Qt 的 DLL 与插件占绝大部分）。
+> 如果你打出来的只有几 MB、或还停在旧的 30 MB 上下，那多半是 PySide6 没被收进去。
 >
 > 想确认打得对不对，请走第 6 节的四步校验，而不是比对 exe 的哈希。

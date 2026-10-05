@@ -308,7 +308,7 @@ def _try_build_slot(data: bytes, logo_off: int, index: int) -> Optional[LogoSlot
     """从 Logo GUID 出发，向前后寻找承载它的 LZMA 段并试解压。"""
     lzma_pat = guid_to_bytes(LZMA_GUID)
 
-    # 1) 同一段内：Logo GUID 之后 64 字节内出现 LZMA GUID
+    # 1) 同一段内：Logo GUID 之后 96 字节内出现 LZMA GUID
     for delta in range(0, 96):
         p = logo_off + delta
         if p + 16 > len(data):
@@ -726,7 +726,10 @@ def check_plaintext(plain: bytes, bmp_off: int, bmp_len: int) -> str:
         off = (off + size + 3) & ~3
         if n > 64:
             return "section 数量异常（>64）"
-    if not 0 <= off - len(plain) <= 3:
+    # 允许 off 比明文长度少 0..3 字节：段尾的 4 字节对齐填充可能比
+    # 「上一段结束位置向上取整」多 1..3 字节，此时 off 会落在明文末尾之前，
+    # 仍属自洽；只有偏差超过 3 字节才说明某段 size 字段错了。
+    if not -3 <= off - len(plain) <= 3:
         return f"section 链走到 +{off}，与明文长度 {len(plain)} 不吻合"
     if bmp_sec is None:
         return "没有找到承载 BMP 的 section"
@@ -757,6 +760,10 @@ def build_plaintext(slot: LogoSlot, new_bmp: bytes) -> bytes:
             sec_start, sec_size = off, size
             break
     if sec_start is None:
+        # 裸 BMP 明文（没有 UEFI section 链）：明文就是 BMP 本身，
+        # 此时没有段 size 字段要同步，直接返回新 BMP 即可。
+        if slot.bmp_off == 0 and slot.bmp_off + len(slot.bmp) == len(plain):
+            return new_bmp
         raise BiosLogoError("定位 Logo 所在的 EFI section 失败，无法重建明文")
 
     # BMP 必须正好占满该段的载荷，否则这里就不是「换张图」能解决的事
@@ -794,6 +801,9 @@ def size_for_aspect(aspect_w: float, aspect_h: float,
     if aspect_w <= 0 or aspect_h <= 0:
         raise BiosLogoError("图片尺寸异常，无法计算比例")
     if area is None:
+        # 兜底值：调用方没给目标像素量时用「典型 BIOS Logo 画布」的像素量。
+        # 实际代码路径（CLI --size-ratio）总是显式传 slot 的 BMP 像素量，
+        # 这里只是给独立调用 / 测试留的默认。
         area = 293 * 400
     a = aspect_w / aspect_h
     h = max(1, int(round(math.sqrt(area / a))))
@@ -1187,6 +1197,16 @@ def main(argv: Iterable | None = None) -> int:
             except Exception:
                 pass
         print(f"出错了：{exc}", file=sys.stderr)
+        return 3
+    except FileNotFoundError as exc:
+        # 用户给的文件路径不存在（BIOS 文件或替换图片）——预期内的失败，
+        # 给一行提示而不是抛栈。
+        for _stream in (sys.stdout, sys.stderr):
+            try:
+                _stream.reconfigure(errors="replace")
+            except Exception:
+                pass
+        print(f"找不到文件：{exc}", file=sys.stderr)
         return 3
 
 

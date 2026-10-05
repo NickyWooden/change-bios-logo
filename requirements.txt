@@ -6,4 +6,9 @@
 #
 # 打包成单文件 exe：见 BUILD.md（build.ps1 会自动额外安装 PyInstaller）
 
+# 核心库（CLI + GUI 共用）
 Pillow>=10.1
+# 8/4/1 位深调色板量化（bmp_bytes_paletted 用到）
+numpy>=1.24
+# GUI（PySide6 全家桶：Essentials + Addons + shiboken6）
+PySide6>=6.5
