@@ -1,0 +1,8 @@
+# change-bios-logo Web 版后端依赖
+# = FastAPI（Web 框架）+ 核心库依赖（Pillow / numpy）
+# 核心逻辑在 bioslogo.py（GUI-free），从项目根目录拷进来
+fastapi>=0.100.0
+uvicorn[standard]>=0.23.0
+python-multipart>=0.0.6
+Pillow>=10.1.0
+numpy>=1.24.0

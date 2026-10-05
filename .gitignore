@@ -27,6 +27,10 @@ backup/
 *.cap
 *.fd
 
+# ---- Web 版本地测试产物（可用 web/backend/build_test_bios.py 重新生成）----
+web/backend/test_bios_compressed.bin
+web/backend/test_new_logo.png
+
 # ---- 编辑器 / 系统 ----
 .vscode/
 .idea/

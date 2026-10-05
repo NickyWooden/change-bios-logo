@@ -1,0 +1,37 @@
+# change-bios-logo Web 版 — Docker 构建上下文排除
+# 构建上下文是项目根目录（docker build -f web/Dockerfile .），
+# 这里只保留 web 版真正需要的文件，其余全部排除以加快构建、减小镜像。
+
+# Git
+.git
+.git/
+
+# 桌面版产物 / 源码（web 版只复用 bioslogo.py，不需要这些）
+*.deb
+app.ico
+build.ps1
+add_uac_manifest.py
+glass.py
+change_bios_logo.py
+requirements.txt
+
+# Python 缓存
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+
+# 本地 venv（本地开发用，镜像内自行 pip install）
+.venv/
+**/.venv/
+
+# Web 版本地测试产物
+web/backend/build_test_bios.py
+web/backend/test_bios_compressed.bin
+web/backend/test_new_logo.png
+
+# 文档与截图
+docs/
+
+# deb 打包目录（含大体积 venv，务必排除）
+deb/

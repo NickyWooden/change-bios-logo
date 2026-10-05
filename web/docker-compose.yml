@@ -1,0 +1,39 @@
+# change-bios-logo Web 版 — docker compose 部署
+# ============
+# 构建并启动（在项目根目录执行）：
+#   docker compose -f web/docker-compose.yml up -d --build
+# 查看日志：
+#   docker compose -f web/docker-compose.yml logs -f
+# 停止：
+#   docker compose -f web/docker-compose.yml down
+#
+# 启动后访问 http://localhost:8000
+#
+# 说明：
+#   - 会话（载入的 BIOS 文件）默认存在容器内 /app/sessions，容器重启即丢。
+#   - 需要持久化会话，取消下面 volumes 的注释即可。
+
+services:
+  web:
+    build:
+      # 构建上下文 = 项目根目录（Dockerfile 里 COPY bioslogo.py / web/... 都相对根目录）
+      context: ..
+      dockerfile: web/Dockerfile
+    image: change-bios-logo-web
+    container_name: change-bios-logo-web
+    ports:
+      - "8000:8000"
+    # 持久化会话（可选）：
+    # volumes:
+    #   - bioslogo-sessions:/app/sessions
+    restart: unless-stopped
+    # 健康检查：
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+# volumes:
+#   bioslogo-sessions:

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>change-bios-logo — Web 版</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="bg-blobs" aria-hidden="true">
+    <div class="blob b1"></div>
+    <div class="blob b2"></div>
+    <div class="blob b3"></div>
+  </div>
+
+  <div class="container">
+    <header class="card">
+      <h1>change-bios-logo</h1>
+      <p class="subtitle">替换 UEFI/BIOS 固件里的开机 Logo 图片，并重新打包成 BIOS 文件（输出与输入严格等长）</p>
+    </header>
+
+    <!-- 步骤 1：载入 BIOS 文件 -->
+    <section class="card" id="step-scan">
+      <h2>1. 载入 BIOS 文件</h2>
+      <div class="row">
+        <input type="file" id="bios-file" accept=".bin,.bin,.F44d,.f44d,.cap,.cap,.rom">
+        <button id="btn-scan" class="btn primary" disabled>扫描</button>
+      </div>
+      <div id="scan-result" class="hidden"></div>
+    </section>
+
+    <!-- 步骤 2：上传新 Logo -->
+    <section class="card" id="step-upload">
+      <h2>2. 上传新 Logo</h2>
+      <div class="row">
+        <input type="file" id="logo-file" accept="image/*">
+        <button id="btn-preview" class="btn" disabled>预览适配效果</button>
+      </div>
+      <div id="preview-result" class="hidden"></div>
+    </section>
+
+    <!-- 步骤 3：适配参数 -->
+    <section class="card" id="step-adapt">
+      <h2>3. 适配参数</h2>
+      <div class="row">
+        <label class="field">
+          输出尺寸
+          <select id="output-size">
+            <option value="same">与原图相同</option>
+            <option value="custom">指定尺寸</option>
+          </select>
+        </label>
+        <label class="field hidden" id="custom-size-label">
+          自定义
+          <span class="inline-size">
+            <input type="number" id="custom-width" min="1" max="4096" placeholder="宽">
+            <span>×</input>
+            <input type="number" id="custom-height" min="1" max="4096" placeholder="高">
+          </span>
+        </label>
+      </div>
+      <div class="row">
+        <label class="field">
+          颜色位深
+          <select id="color-depth">
+            <option value="24">24 位（真彩）</option>
+            <option value="8">8 位（256 色）</option>
+            <option value="4">4 位（16 色）</option>
+            <option value="1">1 位（黑白）</option>
+          </select>
+        </label>
+        <label class="field checkbox">
+          <input type="checkbox" id="auto-trim" checked> 自动去黑边
+        </label>
+        <label class="field checkbox">
+          <input type="checkbox" id="auto-shrink" checked> 放不下时自动缩小
+        </label>
+      </div>
+    </section>
+
+    <!-- 步骤 4：替换并保存 -->
+    <section class="card" id="step-replace">
+      <h2>4. 替换并保存</h2>
+      <div class="row">
+        <button id="btn-replace" class="btn primary" disabled>替换并下载</button>
+        <a id="download-link" class="hidden" download>下载新 BIOS 文件</a>
+      </div>
+      <p class="hint" id="replace-hint">先完成前 3 步，再点「替换并下载」。</p>
+    </section>
+
+    <!-- 日志 -->
+    <section class="card" id="log-card">
+      <h2>日志</h2>
+      <pre id="log" class="log"></pre>
+    </section>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
