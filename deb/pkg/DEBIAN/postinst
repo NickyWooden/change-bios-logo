@@ -1,0 +1,9 @@
+#!/bin/sh
+# 安装后：刷新桌面数据库与图标缓存（工具缺失时静默跳过，不致命）
+if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database -q /usr/share/applications 2>/dev/null || true
+fi
+if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+    gtk-update-icon-cache -qf /usr/share/icons/hicolor 2>/dev/null || true
+fi
+exit 0

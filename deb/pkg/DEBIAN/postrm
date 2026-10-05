@@ -1,0 +1,11 @@
+#!/bin/sh
+# 卸载时：清理桌面条目并刷新数据库
+case "$1" in
+    remove|failed-upgrade|failed-replace)
+        rm -f /usr/share/applications/change-bios-logo.desktop
+        if command -v update-desktop-database >/dev/null 2>&1; then
+            update-desktop-database -q /usr/share/applications 2>/dev/null || true
+        fi
+        ;;
+esac
+exit 0

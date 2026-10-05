@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=change-bios-logo
+Name[zh_CN]=BIOS 开机 Logo 修改工具
+Comment=Replace the UEFI/BIOS boot logo and repack the firmware image
+Comment[zh_CN]=替换 UEFI/BIOS 固件里的开机 Logo，并重新打包成 BIOS 文件
+Exec=/usr/bin/change-bios-logo
+Icon=change-bios-logo
+Terminal=false
+Categories=Utility;Graphics;
+Keywords=BIOS;UEFI;UEFI;logo;logo;
+Keywords[zh_CN]=BIOS;UEFI;开机;Logo;开机画面;

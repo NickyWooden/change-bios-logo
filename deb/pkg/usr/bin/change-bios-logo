@@ -1,0 +1,4 @@
+#!/bin/sh
+# change-bios-logo — BIOS 开机 Logo 修改工具（图形界面入口）
+# 自包含安装：解释器与依赖都在 /opt/change-bios-logo/venv 内
+exec /opt/change-bios-logo/venv/bin/python /opt/change-bios-logo/change_bios_logo.py "$@"

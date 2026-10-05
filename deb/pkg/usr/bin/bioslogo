@@ -1,0 +1,5 @@
+#!/bin/sh
+# bioslogo — change-bios-logo 命令行接口（可脚本化 / 批处理）
+# 例：bioslogo --in X.F44d --list
+#     bioslogo --in X.F44d --replace new.png --out out.F44d --fit contain --trim
+exec /opt/change-bios-logo/venv/bin/python /opt/change-bios-logo/bioslogo.py "$@"

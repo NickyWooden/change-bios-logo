@@ -1,0 +1,21 @@
+Package: change-bios-logo
+Version: 1.0.2-1
+Architecture: amd64
+Installed-Size: 277688
+Maintainer: change-bios-logo <change-bios-logo@example.com>
+Section: utils
+Priority: optional
+Depends: python3 (>= 3.10), libglib2.0-0, libgl1, libegl1, libxkbcommon0, libdbus-1-3, libfontconfig1, libfreetype6, libx11-6, libx11-xcb1, libxcb1, libxcb-cursor0, libsm6, libxext6
+Description: BIOS 开机 Logo 修改工具
+ 替换 UEFI/BIOS 固件里的开机 Logo 图片，并重新打包成 BIOS 文件。
+ .
+ 只改 Logo 图片，不动固件代码：输出文件与输入严格等长，FV / FFS / 段头
+ 结构与其余字节逐字节保留。支持 Logo 解析与预览、图片适配（去黑边 /
+ 完整显示 / 铺满裁剪 / 拉伸 / 缩放 / 手动裁剪）、任意输出尺寸与
+ 24/8/4/1 位颜色位数，写出前自动做五项结构校验。
+ .
+ 本包为自包含安装：程序与 Python 运行环境（Pillow / numpy / PySide6）
+ 全部位于 /opt/change-bios-logo，不污染系统 Python。
+ .
+ 图形界面：change-bios-logo（应用菜单中为「BIOS 开机 Logo 修改工具」）
+ 命令行接口：bioslogo（如 bioslogo --in X.F44d --list）

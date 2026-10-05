@@ -13,6 +13,10 @@ dist/
 *.exe
 *.pdb
 
+# ---- deb 打包（pkg/opt 是源码副本 + venv，由 build-deb.sh 重建；.deb 是产物）----
+deb/pkg/opt/
+*.deb
+
 # ---- 运行时生成 ----
 backup/
 

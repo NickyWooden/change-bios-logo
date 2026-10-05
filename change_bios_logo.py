@@ -85,14 +85,18 @@ BPP_TIPS = {
 # 未压缩数据超过这个体积就跳过「容量预检」，免得为一张必然放不下的巨图白等很久
 PROBE_RAW_LIMIT = 8_000_000
 
+# 2026-10-05（1.0.2）：改用 Qt 标准过滤器格式「名称 (通配符1 通配符2 …)」，
+# 多个过滤器之间用「;;」分隔（见下方 getOpenFileName/getSaveFileName 的 join）。
+# 旧格式「名称;通配符」非标准：Qt 按空格切分，中文名「BIOS 固件」里的空格会把
+# 名称拆碎成 'BIOS' / '固件;*.F44d' 两个坏通配符，导致列表行为异常。
 IMAGE_TYPES = [
-    "图片文件;*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff",
-    "PNG;*.png", "JPEG;*.jpg *.jpeg", "BMP;*.bmp",
-    "GIF;*.gif", "WebP;*.webp", "所有文件;*.*",
+    "图片文件 (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff)",
+    "PNG (*.png)", "JPEG (*.jpg *.jpeg)", "BMP (*.bmp)",
+    "GIF (*.gif)", "WebP (*.webp)", "所有文件 (*)",
 ]
 BIOS_TYPES = [
-    "BIOS 固件;*.F44d *.f44d *.bin *.rom *.cap *.fd *.BIN *.ROM *.CAP",
-    "所有文件;*.*",
+    "BIOS 固件 (*.F44d *.f44d *.bin *.rom *.cap *.fd *.BIN *.ROM *.CAP)",
+    "所有文件 (*)",
 ]
 
 
@@ -933,11 +937,25 @@ class App(G.GlassWindow):
             pass
 
     # ------------------------------------------------------------- ① 载入
+    def _dialog_start_dir(self) -> str:
+        """文件对话框的起始目录。
+
+        2026-10-05（1.0.2）：原来用 tool_dir()（打包后是 /opt/change-bios-logo/），
+        那是工具自身的安装目录，里面只有 venv / 脚本，用户自己的 BIOS、图片根本
+        不在那儿，于是「文件管理器里看不到文件」。改成从用户主目录（或其
+        Downloads 子目录，若存在）开始，用户一眼就能在常见位置里找到文件。
+        """
+        home = Path.home()
+        downloads = home / "Downloads"
+        if downloads.is_dir():
+            return str(downloads)
+        return str(home)
+
     def on_load(self):
         _trace("① 载入 BIOS：正在打开文件对话框…")
         p, _ = QFileDialog.getOpenFileName(
-            self, "选择 BIOS 文件", str(self.tool_dir),
-            "\n".join(BIOS_TYPES))
+            self, "选择 BIOS 文件", self._dialog_start_dir(),
+            ";;".join(BIOS_TYPES))
         if not p:
             _trace("① 载入 BIOS：用户取消")
             return
@@ -1461,8 +1479,8 @@ class App(G.GlassWindow):
     def on_upload(self):
         _trace("② 上传新 Logo：正在打开文件对话框…")
         p, _ = QFileDialog.getOpenFileName(
-            self, "选择新的 Logo 图片", str(self.tool_dir),
-            "\n".join(IMAGE_TYPES))
+            self, "选择新的 Logo 图片", self._dialog_start_dir(),
+            ";;".join(IMAGE_TYPES))
         if not p:
             _trace("② 上传新 Logo：用户取消")
             return
@@ -1536,7 +1554,7 @@ class App(G.GlassWindow):
         _trace("③ Logo 替换：正在打开保存对话框…")
         out, _ = QFileDialog.getSaveFileName(
             self, "保存新的 BIOS 文件", default,
-            f"BIOS 固件;*{suffix}\n所有文件;*.*")
+            f"BIOS 固件 (*{suffix});;所有文件 (*)")
         if not out:
             _trace("③ Logo 替换：用户取消")
             return
