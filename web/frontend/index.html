@@ -65,6 +65,7 @@
           </span>
         </label>
         <button id="btn-fit-reset" class="btn ghost" type="button">重置</button>
+        <button id="btn-crop" class="btn ghost" type="button" disabled>裁剪图片…</button>
       </div>
       <div class="row">
         <label class="field">
@@ -120,6 +121,31 @@
       <h2>日志</h2>
       <pre id="log" class="log"></pre>
     </section>
+  </div>
+
+  <!-- 裁剪图片对话框（modal，对齐桌面版 CropDialog：拖框框选 + 锁定比例 + 全选/按目标比例/去黑边/还原） -->
+  <div class="crop-overlay hidden" id="crop-overlay">
+    <div class="crop-dialog">
+      <div class="crop-title">裁剪图片</div>
+      <div class="crop-canvas-wrap">
+        <canvas id="crop-canvas" width="640" height="400"></canvas>
+      </div>
+      <div class="crop-bar">
+        <label class="field checkbox">
+          <input type="checkbox" id="crop-lock"> 锁定比例
+          <span class="crop-aspect" id="crop-aspect"></span>
+        </label>
+        <button class="btn ghost" id="crop-sel-all" type="button">全选</button>
+        <button class="btn ghost" id="crop-sel-aspect" type="button">按目标比例</button>
+        <button class="btn ghost" id="crop-sel-content" type="button">去黑边</button>
+        <button class="btn ghost" id="crop-restore" type="button">还原</button>
+      </div>
+      <div class="crop-size" id="crop-size"></div>
+      <div class="crop-foot">
+        <button class="btn ghost" id="crop-cancel" type="button">取消</button>
+        <button class="btn primary" id="crop-ok" type="button">确定</button>
+      </div>
+    </div>
   </div>
 
   <script src="app.js"></script>
