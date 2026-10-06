@@ -1,8 +1,11 @@
 # 打包说明（BUILD.md）
 
-把 `change-bios-logo` 打包成**单文件 Windows exe**（双击即用、不需要装 Python）。
+把 `change-bios-logo` 打包成可分发的可执行产物：**Windows 单文件 exe**（双击即用、不需要装 Python），
+或 **Debian / Ubuntu 的 `.deb`**（`dpkg -i` 安装、自带 venv、自包含）。
 
-本项目只有一个第三方运行依赖：**Pillow**。GUI 用标准库 `tkinter`，压缩用标准库 `lzma`，都不需要额外安装。
+运行依赖见 [requirements.txt](requirements.txt)：`Pillow`（图片处理）、`numpy`（8/4/1 位调色板量化）、
+`PySide6`（GUI，Qt 全家桶）；压缩用标准库 `lzma`。两种产物都会把这些依赖**打包进去**
+（exe 由 PyInstaller 收进单文件；deb 装进自包含的 venv），终端用户无需自己装 Python 或 pip 包。
 
 ---
 
@@ -16,7 +19,8 @@
 * [6. 产物校验](#6-产物校验)
 * [7. 已知的坑](#7-已知的坑)
 * [8. 发布到 GitHub Releases](#8-发布到-github-releases)
-* [9. 参考版本与产物指纹](#9-参考版本与产物指纹)
+* [9. Debian / Ubuntu 打包（.deb）](#9-debian--ubuntu-打包deb)
+* [10. 参考版本与产物指纹](#10-参考版本与产物指纹)
 
 ---
 
@@ -24,11 +28,11 @@
 
 | 项目 | 要求 |
 | --- | --- |
-| 操作系统 | Windows 10 / 11（工具本身只用 Windows 的原生文件对话框与 `os.startfile`，**不支持 Linux / macOS**） |
-| Python | **3.10 或更高**（用到了 `Image.Quantize` / `Image.Dither` 等较新的枚举） |
+| 操作系统 | **Windows 10 / 11**（打 exe）或 **Debian 12+ / Ubuntu 22.04+**（打 deb，amd64）。文件对话框用 Qt 非原生实现、跨平台；`os.startfile` 的「打开工具目录」按钮仅 Windows 有效（Linux 下为占位） |
+| Python | **3.10 或更高**（用到了 `Image.Quantize` / `Image.Dither` 等较新的枚举）；deb 的 venv 与解释器版本绑定，建议 3.14 |
 | Pillow | `>=10.1`（开发与验证时使用 12.3.0） |
-| PyInstaller | `>=6.0`（开发与验证时使用 6.22.3）；只在打包时需要 |
-| PowerShell | Windows PowerShell 5.1 或 PowerShell 7+ 都可以 |
+| PyInstaller | `>=6.0`（开发与验证时使用 6.22.3）；只在打 exe 时需要，deb 不需要 |
+| 打包工具 | 打 exe：Windows PowerShell 5.1 或 PowerShell 7+；打 deb：`dpkg-deb`（dpkg 自带）+ `python3`，建议装 `uv` 加速 |
 
 > 用虚拟环境是强烈建议的做法：PyInstaller 会把当前环境里"被导入到的"包一起收进 exe，
 > 环境越干净，打出来的 exe 越小、越不容易把无关模块带进去。
@@ -127,7 +131,7 @@ python -m PyInstaller `
 | `--windowed` | GUI 程序，不要弹控制台黑框。**反过来说：这个版本看不到任何 `print` 输出**，调试请改用源码运行或第 5 节的 `--console` 版 |
 | `--name change-bios-logo` | 产物名 |
 | `--icon <绝对路径>` | exe 图标。**必须传绝对路径**，详见第 7 节 |
-| `--hidden-import PIL._tkinter_finder` | Pillow 在 tkinter 下会动态导入这个模块，PyInstaller 的静态分析有时漏掉它；显式声明可以避免"打完包一点开预览就崩" |
+| `--hidden-import PIL._tkinter_finder` | 历史遗留的安全声明：旧 tkinter 版里 Pillow 会动态导入这个模块，PyInstaller 的静态分析有时漏掉它；现在 GUI 已换 PySide6、代码里不再直接用它，但留着无害，留着以防 Pillow 内部某条路径仍会碰到 |
 | `--distpath` / `--workpath` / `--specpath` | 把中间产物都收进 `build\`，仓库根目录只留源码 |
 
 可选优化：
@@ -137,7 +141,7 @@ python -m PyInstaller `
   排除能明显减小体积，但会让低位深功能在运行时报 `ModuleNotFoundError`，
   而这类问题**打包阶段完全看不出来**。
 * `--exclude-module` 的正确用法是排除**确定用不到**的模块。本项目实际只用到 Pillow 的
-  `Image` / `ImageDraw` / `ImageFont` / `ImageTk` 与标准库的 `tkinter` / `lzma` / `numpy`。
+  `Image` / `ImageDraw` / `ImageFont` 与标准库的 `lzma` / `numpy`，GUI 用 `PySide6`（Qt）。
   **每排除一个都要重新跑一遍完整功能验证**，否则很容易"打包成功、运行才崩"。
 * `glass.py` 是**同目录下的本地模块**（`import glass`），PyInstaller 会自己跟着导入分析收进去，
   **不需要** `--hidden-import glass`，也**不需要** `--add-data`。
@@ -381,7 +385,88 @@ gh release create $tag $exe "$exe.sha256" `
 
 ---
 
-## 9. 参考版本与产物指纹
+## 9. Debian / Ubuntu 打包（.deb）
+
+除了 Windows exe，本项目也提供 **Debian / Ubuntu 的 `.deb`**（`deb/` 目录）。
+与 exe 不同，deb **不用 PyInstaller**，而是把源码 + 一个**自包含的 venv** 装进
+`/opt/change-bios-logo/`，终端用户 `dpkg -i` 即可，无需自己装 Python 或 pip 包。
+
+### 9.1 环境要求
+
+| 项目 | 要求 |
+| --- | --- |
+| 操作系统 | Debian 12+ / Ubuntu 22.04+（amd64） |
+| dpkg-deb | dpkg 自带，Ubuntu/Debian 默认就有 |
+| python3 | CPython 3.10+，建议 3.14（venv 的 ABI 与解释器版本绑定） |
+| uv（可选） | uv 0.12+，建 venv 与装依赖都更快；没有也能用 `python3 -m venv` |
+
+### 9.2 一键构建（推荐）
+
+```bash
+cd <项目根目录>/deb
+./build-deb.sh
+```
+
+脚本依次做：复制源码到 `pkg/opt/change-bios-logo/` → 建 venv 并装依赖 →
+用 `du` 重算 `Installed-Size` 写回 `DEBIAN/control` → `dpkg-deb --build --root-owner-group`
+产出 `change-bios-logo_<版本>_<arch>.deb`。幂等，可重复跑。
+
+### 9.3 产物结构
+
+```
+change-bios-logo_1.0.2-1_amd64.deb
+└── (解包后)
+    ├── DEBIAN/            # 元数据：control / postinst / postrm
+    ├── opt/change-bios-logo/
+    │   ├── change_bios_logo.py   # GUI 入口
+    │   ├── bioslogo.py           # CLI 入口
+    │   ├── glass.py              # 毛玻璃主题
+    │   ├── requirements.txt
+    │   ├── app.ico
+    │   ├── docs/                 # 截图
+    │   ├── backup/               # 运行时备份（0777）
+    │   └── venv/                 # 自包含虚拟环境（PySide6 等，~272 MB）
+    └── usr/
+        ├── bin/change-bios-logo  # 入口脚本 → venv 里的 python
+        ├── bin/bioslogo
+        └── share/
+            ├── applications/change-bios-logo.desktop   # 应用菜单
+            └── icons/hicolor/256x256/apps/change-bios-logo.png
+```
+
+### 9.4 安装 / 卸载
+
+```bash
+# 安装（系统级依赖由 control 的 Depends 声明，缺了 dpkg 会提示）
+sudo dpkg -i change-bios-logo_1.0.2-1_amd64.deb
+# 或 apt（会自动从源补系统级依赖）
+sudo apt install ./change-bios-logo_1.0.2-1_amd64.deb
+
+# 启动
+change-bios-logo        # GUI
+bioslogo --list ...     # CLI
+
+# 卸载（postrm 会清掉 .desktop 与图标缓存）
+sudo dpkg -r change-bios-logo
+```
+
+> 安装后**重启应用**再验证：运行中的进程持有的是内存里的旧代码。
+> 无 root 的环境（如容器）可 `dpkg-deb -x` 解包后直接跑
+> `opt/change-bios-logo/venv/bin/python opt/change-bios-logo/change_bios_logo.py`。
+
+### 9.5 与 exe 的差异
+
+| | Windows exe | Debian / Ubuntu deb |
+| --- | --- | --- |
+| 打包方式 | PyInstaller 单文件 | 源码 + 自包含 venv |
+| 安装 | 双击即用 | `dpkg -i` / `apt install` |
+| 体积 | ~65 MB | ~66 MB（venv 占绝大部分） |
+| 「打开工具目录」按钮 | 有效（`os.startfile`） | 占位（`os.startfile` 仅 Windows，Linux 下点一下只在日志里提示） |
+| 应用菜单 / 图标 | 无（靠 exe 自身） | 有（.desktop + hicolor 图标） |
+
+---
+
+## 10. 参考版本与产物指纹
 
 本文档中所有验证结论来自下面这套组合，可作为复现基准：
 
@@ -411,3 +496,16 @@ gh release create $tag $exe "$exe.sha256" `
 > 如果你打出来的只有几 MB、或还停在旧的 30 MB 上下，那多半是 PySide6 没被收进去。
 >
 > 想确认打得对不对，请走第 6 节的四步校验，而不是比对 exe 的哈希。
+
+Debian / Ubuntu deb 的参考指纹（`deb/build-deb.sh` 构建，Debian / Ubuntu amd64，Python 3.14.4，PySide6 6.11.2）：
+
+| 项目 | 值 |
+| --- | --- |
+| 文件名 | `change-bios-logo_1.0.2-1_amd64.deb`（由 `DEBIAN/control` 的 `Version` 决定） |
+| 字节数 | `68,728,706` |
+| SHA-256 | `04dd426fa3207aaaa3b30dc577e2081df95b4d19f95a6086f0575783de0dd1b7` |
+
+> deb 的指纹**比 exe 稳定得多**：`--root-owner-group` 固定了属主，避免了 uid/gid 抖动；
+> 只要源码、依赖版本、`dpkg-deb` 版本一致，重打出来的 `.deb` 字节数与 SHA-256 基本可复现。
+> 但 venv 里装的是 PySide6 等二进制 wheel，换发行版 / 换 Python 小版本仍可能让 wheel 不同，
+> 从而让指纹变化——所以它同样**只用于说明"哪一次构建"，不做强校验**。

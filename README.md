@@ -1,6 +1,6 @@
 # change-bios-logo
 
-Windows 桌面小工具：**替换 UEFI/BIOS 固件里的开机 Logo 图片**，并重新打包成 BIOS 文件。
+跨平台桌面小工具（**Windows / Debian / Ubuntu**）：**替换 UEFI/BIOS 固件里的开机 Logo 图片**，并重新打包成 BIOS 文件。
 
 只改 Logo 图片，**不动固件代码**：输出文件与输入**严格等长**，FV / FFS / 段头结构与其余字节逐字节保留。
 
@@ -140,7 +140,19 @@ Windows 桌面小工具：**替换 UEFI/BIOS 固件里的开机 Logo 图片**，
 
 到本仓库的 **Releases** 页面下载 `change-bios-logo.exe`，双击运行即可，**无需安装 Python**。
 
-### 方式二：源码运行
+### 方式二：安装 .deb（Debian / Ubuntu）
+
+到本仓库的 **Releases** 页面下载 `change-bios-logo_*.deb`，安装后从应用菜单或命令行启动：
+
+```bash
+sudo dpkg -i change-bios-logo_*.deb   # 或 sudo apt install ./change-bios-logo_*.deb
+change-bios-logo                       # GUI
+bioslogo --list <BIOS 文件>            # CLI
+```
+
+deb 自带 venv（PySide6 等依赖都装好了），**无需自己装 Python 或 pip 包**。详见 [BUILD.md 第 9 节](BUILD.md#9-debian--ubuntu-打包deb)。
+
+### 方式三：源码运行
 
 ```powershell
 pip install -r requirements.txt
@@ -229,7 +241,7 @@ python bioslogo.py --in X.F44d --replace new.png --slot 1 --out out.F44d
   取消"放不下时自动缩小"后若仍放不下，工具会明确报出"超出多少字节"并给出五条建议，**不会**去动其他区域、也不会写文件。
 * **LZMA 属性字节固定沿用固件原值（`0x5D`）**，不做调优。曾经做过"穷举 5 个候选 props 取压缩率最好"的优化，但它只值约 5% 空间，而实测这份固件里几十个 LZMA 段的 `props` **清一色都是 0x5D**，部分 AMI 版本按 0x5D 写死解码器，风险与收益不成比例，已改为始终沿用原值。
 * 上传图片**不限大小**（只留 256 MB 的异常保护值）：输出 BIOS 的长度是固定的，与输入图片多大无关；输入图再大也会被等比缩放到能放下的尺寸。
-* 仅 Windows（依赖原生文件对话框与 `os.startfile`）。
+* Windows 与 Debian / Ubuntu 均已支持（文件对话框用 Qt 非原生实现、跨平台；`os.startfile` 的「打开工具目录」按钮在 Linux 下为占位）。macOS 未验证。
 
 ---
 
@@ -260,11 +272,12 @@ python bioslogo.py --in X.F44d --replace new.png --slot 1 --out out.F44d
 
 | 文件 | 说明 |
 | --- | --- |
-| `change_bios_logo.py` | tkinter 图形界面（三个按钮、预览、适配控件、输出尺寸控件、颜色位数控件、裁剪对话框、异步任务） |
+| `change_bios_logo.py` | PySide6（Qt）图形界面（三个按钮、预览、适配控件、输出尺寸控件、颜色位数控件、裁剪对话框、异步任务） |
 | `glass.py` | 毛玻璃视觉工具箱：磨砂背景生成、半透明圆角卡片 `GlassCard`、自绘按钮 `GlassButton`、自绘勾选框 `GlassCheck`、ttk 深色主题、窗口圆角与深色标题栏 |
 | `bioslogo.py` | 核心库：固件扫描 / 段解析 / LZMA 解压 / BMP 读写（含 1/4/8bpp 调色板）/ 去黑边 / 适配缩放 / 任意尺寸重打包 / 容量自动缩小 / 等长替换 / 校验；含 CLI |
 | `app.ico` | 程序图标（打包时作为 exe 图标） |
 | `build.ps1` | 一键打包脚本（生成单文件 exe） |
+| `deb/` | Debian / Ubuntu 打包：`DEBIAN/`（control / postinst / postrm）+ `usr/`（入口脚本 + .desktop + 图标）+ `build-deb.sh`（一键构建脚本） |
 | `BUILD.md` | 打包说明文档 |
 | `requirements.txt` | 运行与打包依赖 |
 | `docs\screenshot.png` | 主界面截图 |
@@ -278,16 +291,16 @@ python bioslogo.py --in X.F44d --replace new.png --slot 1 --out out.F44d
 
 ## 界面主题
 
-界面是**深色毛玻璃**风格，实现在 `glass.py` 里，不依赖任何第三方 UI 库（只用 tkinter + Pillow）。
+界面是**深色毛玻璃**风格，实现在 `glass.py` 里，基于 PySide6（Qt）+ Pillow 自绘。
 
-需要说清楚的一点：**tkinter 没有透明控件，窗口也不支持逐像素 alpha**，所以 DWM 的原生亚克力毛玻璃在 tkinter 里根本露不出来 ——
-任何实色子控件都会把它盖住。这里的做法是"自己画玻璃"：
+需要说清楚的一点：早期用 tkinter 时，**tkinter 没有透明控件、窗口也不支持逐像素 alpha**，DWM 的原生亚克力毛玻璃根本露不出来 ——
+任何实色子控件都会把它盖住。现在用 PySide6 也沿用"自己画玻璃"的做法（跨平台一致、可控）：
 
 1. 窗口铺一张用 Pillow 现画的磨砂背景（低分辨率画 5 团彩色光斑 → 高斯模糊 → 放大 → 上下压暗 → 叠噪点）；
 2. 每张卡片在 `<Configure>` 时**从背景图里裁出自己所在的那一块**，再合成半透明圆角面板（投影 + 外发光 + 竖向渐变 + 1px 描边 + 顶部高光 + 左侧色条标题）；
-3. 卡片内部的 `Text` / ttk 控件仍然是实色（tkinter 的硬限制），底色取卡片合成后的实测平均色，误差在 1~2 个色阶内。
+3. 卡片内部的控件（标签 / 下拉 / 输入框 / 文本框）利用 Qt 的逐像素 alpha 做成**真透明**，玻璃感比旧 tkinter 版更"透"。
 
-按钮与勾选框是自绘的 Canvas 控件（4 倍超采样后缩放，圆角与文字一起享受抗锯齿）。
+按钮与勾选框是自绘的控件（4 倍超采样后缩放，圆角与文字一起享受抗锯齿）。
 `GlassButton` 特意重写了 `configure` / `cget` 并拦截 `state` / `text` / `bg`，
 所以它能**直接顶替原来的 `ttk.Button`**，业务代码一行都不用改。
 
