@@ -116,6 +116,19 @@ select, input[type="number"] {
   font-size: 14px;
 }
 select { cursor: pointer; }
+select option {
+  background: #1a1a2e;
+  color: var(--text);
+}
+select option:disabled {
+  color: var(--text-dim);
+  opacity: 0.55;
+}
+select option:checked,
+select option:active {
+  background: var(--accent);
+  color: #fff;
+}
 input[type="number"] { width: 84px; }
 
 .field {

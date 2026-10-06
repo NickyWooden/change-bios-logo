@@ -16,6 +16,7 @@ let logoRawDataUrl = null;   // 上传原图（data URL），作裁剪底图
 let logoRawImage = null;     // 上传原图（Image 对象），用于拿尺寸
 let logoWorkingFile = null;  // 当前工作图（File），初始=原图，裁剪后=裁剪结果
 let logoWorkingName = '';    // 工作图名称
+let hasCropped = false;      // 是否已裁剪过（控制"裁减尺寸"选项的可用性）
 
 // ---- DOM 引用 -------------------------------------------------------------
 const $ = (id) => document.getElementById(id);
@@ -72,6 +73,12 @@ function updateButtons() {
   btnCrop.disabled = !hasLogo;
 }
 
+// 控制"裁减尺寸"选项的可用性（裁剪后可用，重新选图后禁用）
+function updateCroppedOption() {
+  const opt = outputSizeSelect.querySelector('option[value="cropped"]');
+  if (opt) opt.disabled = !hasCropped;
+}
+
 // ---- 文件选择 -------------------------------------------------------------
 biosFileInput.addEventListener('change', () => {
   sessionId = null;
@@ -92,6 +99,7 @@ logoFileInput.addEventListener('change', () => {
     // 工作图初始=原图；同时读原图为 data URL（作裁剪底图）
     logoWorkingFile = f;
     logoWorkingName = f.name;
+    hasCropped = false;
     logoRawDataUrl = null;
     logoRawImage = null;
     const reader = new FileReader();
@@ -111,6 +119,7 @@ logoFileInput.addEventListener('change', () => {
     log('已选择新 Logo：（无）');
   }
   updateButtons();
+  updateCroppedOption();
 });
 
 // ---- 适配参数 -------------------------------------------------------------
@@ -434,8 +443,8 @@ function setupCropCanvas() {
   cropAnchor = null;
   // 目标输出尺寸（aspect）
   cropTargetSize = getTargetOutputSize();
-  // 锁定比例：有 aspect 时默认勾选（对齐桌面版）
-  cropLock.checked = !!cropTargetSize;
+  // 锁定比例：默认不勾选（用户手动勾选才锁定）
+  cropLock.checked = false;
   cropAspectEl.textContent = cropTargetSize ? ` ${cropTargetSize[0]}:${cropTargetSize[1]}` : '';
   drawCropCanvas();
   updateCropSize();
@@ -686,7 +695,12 @@ cropOk.addEventListener('click', () => {
     const baseName = logoWorkingName.replace(/（裁剪）+$/, '');
     logoWorkingName = baseName + '（裁剪）';
     logoWorkingFile = new File([blob], logoWorkingName, { type: 'image/png' });
-    log(`已裁剪图片：${w}×${h}（原始上传图 ${srcW}×${srcH}）`);
+    hasCropped = true;
+    updateCroppedOption();
+    // 裁剪后自动切到"裁减尺寸"，输出尺寸=裁剪结果尺寸
+    outputSizeSelect.value = 'cropped';
+    customSizeLabel.classList.add('hidden');
+    log(`已裁剪图片：${w}×${h}（原始上传图 ${srcW}×${srcH}），输出尺寸已切为裁减尺寸`);
     closeCropDialog();
     // 刷新预览（对齐桌面版 _finish_crop 的 _update_result_preview）
     if (!previewResultDiv.classList.contains('hidden')) {

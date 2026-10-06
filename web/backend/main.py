@@ -65,9 +65,10 @@ ZOOM_MIN, ZOOM_MAX = 0.30, 3.00           # 缩放范围（0.30× ~ 3.00×）
 # 输出 Logo 的尺寸策略（与桌面版 size_box 一一对应）
 SIZE_ORIG = "orig"          # 跟原 Logo 一样：沿用原 Logo 的像素尺寸与 BMP 头（最保险）
 SIZE_SOURCE = "source"      # 原图：用上传图片自己的像素尺寸，一个像素都不缩放
+SIZE_CROPPED = "cropped"    # 裁减尺寸：用裁剪结果图片的像素尺寸（不额外去黑边）
 SIZE_FIXED = "fixed"        # 固定 720 × 480
 SIZE_CUSTOM = "custom"      # 用户手填 W × H
-SIZE_MODES = (SIZE_ORIG, SIZE_SOURCE, SIZE_FIXED, SIZE_CUSTOM)
+SIZE_MODES = (SIZE_ORIG, SIZE_SOURCE, SIZE_CROPPED, SIZE_FIXED, SIZE_CUSTOM)
 SIZE_FIXED_WH = (720, 480)
 SIZE_MIN, SIZE_MAX = 8, 8192
 
@@ -163,6 +164,14 @@ def _resolve_out_size(size_mode: str, at: bool,
         if src is None:
             return SIZE_FIXED_WH
         w, h = src.width, src.height
+        if not (SIZE_MIN <= w <= SIZE_MAX and SIZE_MIN <= h <= SIZE_MAX):
+            return SIZE_FIXED_WH
+        return (w, h)
+    if size_mode == SIZE_CROPPED:
+        # 裁减尺寸：直接用上传图片（裁剪结果）的像素尺寸，不额外去黑边
+        if new_image is None:
+            return SIZE_FIXED_WH
+        w, h = new_image.width, new_image.height
         if not (SIZE_MIN <= w <= SIZE_MAX and SIZE_MIN <= h <= SIZE_MAX):
             return SIZE_FIXED_WH
         return (w, h)
