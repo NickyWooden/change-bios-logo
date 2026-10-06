@@ -44,18 +44,44 @@
       <h2>3. 适配参数</h2>
       <div class="row">
         <label class="field">
+          目标 Logo 段
+          <select id="slot-select">
+            <option value="0">— 扫描后填充 —</option>
+          </select>
+        </label>
+        <label class="field">
+          适配方式
+          <select id="fit-mode">
+            <option value="contain">完整显示</option>
+            <option value="cover">铺满裁剪</option>
+            <option value="stretch">拉伸填满</option>
+          </select>
+        </label>
+        <label class="field">
+          缩放
+          <span class="inline-size">
+            <input type="range" id="zoom-slider" min="30" max="300" value="100" step="1">
+            <span id="zoom-label">1.00×</span>
+          </span>
+        </label>
+        <button id="btn-fit-reset" class="btn ghost" type="button">重置</button>
+      </div>
+      <div class="row">
+        <label class="field">
           输出尺寸
           <select id="output-size">
-            <option value="same">与原图相同</option>
-            <option value="custom">指定尺寸</option>
+            <option value="orig">跟原 Logo 一样（最保险）</option>
+            <option value="source">原图（上传图片的像素尺寸）</option>
+            <option value="fixed">720×480</option>
+            <option value="custom">自定义（可填 W×H）</option>
           </select>
         </label>
         <label class="field hidden" id="custom-size-label">
           自定义
           <span class="inline-size">
-            <input type="number" id="custom-width" min="1" max="4096" placeholder="宽">
+            <input type="number" id="custom-width" min="8" max="8192" placeholder="宽">
             <span>×</input>
-            <input type="number" id="custom-height" min="1" max="4096" placeholder="高">
+            <input type="number" id="custom-height" min="8" max="8192" placeholder="高">
           </span>
         </label>
       </div>
@@ -63,19 +89,20 @@
         <label class="field">
           颜色位深
           <select id="color-depth">
-            <option value="24">24 位（真彩）</option>
-            <option value="8">8 位（256 色）</option>
-            <option value="4">4 位（16 色）</option>
-            <option value="1">1 位（黑白）</option>
+            <option value="24">24 位（与原 Logo 同格式，默认）</option>
+            <option value="8">8 位 / 256 色（未验证）</option>
+            <option value="4">4 位 / 16 色（未验证，最省）</option>
+            <option value="1">1 位 / 黑白（未验证）</option>
           </select>
         </label>
         <label class="field checkbox">
-          <input type="checkbox" id="auto-trim" checked> 自动去黑边
+          <input type="checkbox" id="auto-trim"> 自动去黑边
         </label>
         <label class="field checkbox">
           <input type="checkbox" id="auto-shrink" checked> 放不下时自动缩小
         </label>
       </div>
+      <p class="hint" id="fit-tip"></p>
     </section>
 
     <!-- 步骤 4：替换并保存 -->

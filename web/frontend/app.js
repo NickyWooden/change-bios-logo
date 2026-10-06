@@ -28,6 +28,12 @@ const customHeightInput = $('custom-height');
 const colorDepthSelect = $('color-depth');
 const autoTrimCheckbox = $('auto-trim');
 const autoShrinkCheckbox = $('auto-shrink');
+const slotSelect = $('slot-select');
+const fitModeSelect = $('fit-mode');
+const zoomSlider = $('zoom-slider');
+const zoomLabel = $('zoom-label');
+const btnFitReset = $('btn-fit-reset');
+const fitTip = $('fit-tip');
 
 // ---- 日志 -----------------------------------------------------------------
 function log(msg, cls = '') {
@@ -66,9 +72,52 @@ logoFileInput.addEventListener('change', () => {
 });
 
 // ---- 适配参数 -------------------------------------------------------------
+// 适配方式提示（与桌面版 FIT_TIPS 对齐）
+const FIT_TIPS = {
+  contain: '完整显示：整张图按比例缩放放进目标框，不变形；两侧可能留黑边。',
+  cover: '铺满裁剪：铺满目标框并裁掉超出部分，不变形；可能裁掉图片边缘。',
+  stretch: '拉伸填满：直接拉伸到目标框大小，宽高比不一致时可能变形。',
+};
+
+function updateFitTip() {
+  const mode = fitModeSelect.value;
+  fitTip.textContent = FIT_TIPS[mode] || FIT_TIPS.contain;
+}
+
+function updateZoomLabel() {
+  const v = parseInt(zoomSlider.value, 10) / 100;
+  zoomLabel.textContent = v.toFixed(2) + '×';
+}
+
 outputSizeSelect.addEventListener('change', () => {
   const isCustom = outputSizeSelect.value === 'custom';
   customSizeLabel.classList.toggle('hidden', !isCustom);
+  previewResultDiv.classList.add('hidden');
+});
+
+fitModeSelect.addEventListener('change', () => {
+  updateFitTip();
+  previewResultDiv.classList.add('hidden');
+});
+
+zoomSlider.addEventListener('input', () => {
+  updateZoomLabel();
+  previewResultDiv.classList.add('hidden');
+});
+
+btnFitReset.addEventListener('click', () => {
+  fitModeSelect.value = 'contain';
+  zoomSlider.value = '100';
+  updateFitTip();
+  updateZoomLabel();
+  previewResultDiv.classList.add('hidden');
+  log('已重置适配方式与缩放');
+});
+
+// 目标 Logo 段选择：切换时切换原图预览
+slotSelect.addEventListener('change', () => {
+  updateOriginalPreview(parseInt(slotSelect.value, 10));
+  previewResultDiv.classList.add('hidden');
 });
 
 function collectAdaptParams() {
@@ -77,6 +126,9 @@ function collectAdaptParams() {
     color_depth: colorDepthSelect.value,
     auto_trim: autoTrimCheckbox.checked,
     auto_shrink: autoShrinkCheckbox.checked,
+    fit_mode: fitModeSelect.value,
+    zoom: parseInt(zoomSlider.value, 10) / 100,
+    slot_index: parseInt(slotSelect.value, 10) || 0,
   };
   if (p.output_size === 'custom') {
     p.custom_width = parseInt(customWidthInput.value, 10) || 0;
@@ -91,6 +143,9 @@ function appendAdaptToForm(form) {
   form.append('color_depth', p.color_depth);
   form.append('auto_trim', p.auto_trim ? '1' : '0');
   form.append('auto_shrink', p.auto_shrink ? '1' : '0');
+  form.append('fit_mode', p.fit_mode);
+  form.append('zoom', String(p.zoom));
+  form.append('slot_index', String(p.slot_index));
   if (p.output_size === 'custom') {
     form.append('custom_width', String(p.custom_width));
     form.append('custom_height', String(p.custom_height));
@@ -174,6 +229,20 @@ function hex(n) {
 
 function renderScanResult(data) {
   const slots = data.slots || [];
+  // 填充「目标 Logo 段」选择器
+  if (slots.length) {
+    slotSelect.innerHTML = '';
+    for (const s of slots) {
+      const opt = document.createElement('option');
+      opt.value = String(s.index);
+      opt.textContent = `${s.index + 1}. ${s.name || 'Logo 段'}（${s.original_width ?? '?'}×${s.original_height ?? '?'}）`;
+      slotSelect.appendChild(opt);
+    }
+    slotSelect.value = slotSelect.options[0].value;
+  } else {
+    slotSelect.innerHTML = '<option value="0">— 无 Logo 段 —</option>';
+  }
+  // 渲染段列表 + 原图预览容器
   let html = '';
   if (!slots.length) {
     html += '<p class="status warn">未找到 Logo 段（该固件可能不含标准 UEFI Logo，或结构不匹配）。</p>';
@@ -190,17 +259,28 @@ function renderScanResult(data) {
       </div>`;
     }
     html += '</div>';
-  }
-  if (data.original_logo_b64) {
-    html += `<div class="preview-wrap" style="margin-top:14px">
-      <div class="preview-box">
-        <div class="label">原 Logo（固件内当前内容）</div>
-        <img src="data:image/png;base64,${data.original_logo_b64}" alt="原 Logo">
-      </div>
-    </div>`;
+    html += '<div class="preview-wrap" style="margin-top:14px"><div class="preview-box" id="original-preview"></div></div>';
   }
   scanResultDiv.innerHTML = html;
   scanResultDiv.classList.remove('hidden');
+  // 初始显示选中段的原图
+  updateOriginalPreview(parseInt(slotSelect.value, 10) || 0);
+}
+
+// 切换「目标 Logo 段」时，更新原图预览为对应段
+function updateOriginalPreview(slotIndex) {
+  const box = document.getElementById('original-preview');
+  if (!box || !scanData) return;
+  const slots = scanData.slots || [];
+  const s = slots.find((x) => s.index === slotIndex) || slots[0];
+  if (!s) return;
+  if (s.original_b64) {
+    box.innerHTML = `<div class="label">原 Logo（固件内当前内容，段 ${s.index + 1}）</div>
+      <img src="data:image/png;base64,${s.original_b64}" alt="原 Logo">
+      <div class="preview-meta">${s.original_width ?? '?'}×${s.original_height ?? '?'} · ${s.original_depth ?? '?'} 位</div>`;
+  } else {
+    box.innerHTML = '<div class="label">原 Logo（固件内当前内容）</div><div class="preview-meta">（该段原图暂不可用）</div>';
+  }
 }
 
 function renderPreviewResult(data) {
@@ -226,4 +306,6 @@ function esc(s) {
 
 // ---- 启动 -----------------------------------------------------------------
 updateButtons();
+updateFitTip();
+updateZoomLabel();
 log('Web 版已加载。请载入 BIOS 文件开始。');
